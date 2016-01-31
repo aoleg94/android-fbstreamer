@@ -15,8 +15,10 @@ int jpeg_to_fd(int fd, void* pixels, int width, int height, int pitch)
 {
     static unsigned char * jpegbuf = NULL;
     static unsigned long jpegsize = 0;
-    static tjhandle tjc = tjInitCompress();
+    static tjhandle tjc = NULL;
     int ret;
+    if(tjc == NULL)
+        tjc = tjInitCompress();
     if(!tjCompress2(tjc, (const unsigned char*)pixels, width, pitch, height, 0,
                 &jpegbuf, &jpegsize, TJSAMP_420, 80, 0))
     {
