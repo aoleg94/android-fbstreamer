@@ -1,9 +1,9 @@
 LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS) 
+include $(CLEAR_VARS)
 # give module name
 LOCAL_MODULE    := fbstreamer
 # list your C files to compile
-LOCAL_SRC_FILES := main.c \
+LOCAL_SRC_FILES := main.c loop.c\
 libjpeg-turbo/jaricom.c\
 libjpeg-turbo/jcapimin.c\
 libjpeg-turbo/jcapistd.c\
@@ -60,8 +60,8 @@ libjpeg-turbo/tjutil.c\
 libjpeg-turbo/transupp.c\
 libjpeg-turbo/turbojpeg.c\
 
-LOCAL_C_INCLUDES += libjpeg-turbo
-LOCAL_CFLAGS += -fPIE
+LOCAL_C_INCLUDES += libjpeg-turbo .
+LOCAL_CFLAGS += -fPIE -std=c99
 LOCAL_LDFLAGS += -fPIE -pie
 # this option will build executables instead of building library for android application.
 include $(BUILD_EXECUTABLE)

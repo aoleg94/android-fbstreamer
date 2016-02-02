@@ -10,7 +10,8 @@
 #include <fcntl.h>
 #include <linux/fb.h>
 #include "libjpeg-turbo/turbojpeg.h"
-
+#include "loop.h"
+/*
 int jpeg_to_fd(int fd, void* pixels, int width, int height, int pitch)
 {
     static unsigned char * jpegbuf = NULL;
@@ -33,10 +34,33 @@ int jpeg_to_fd(int fd, void* pixels, int width, int height, int pitch)
     }
     return ret;
 }
+*/
+volatile unsigned char* fbp = NULL;
+int width=-1, height=-1, pitch=-1;
+int quality = 90;
 
-void socketloop()
+int get_jpeg_from_fb(const void** ptr)
 {
-
+    static unsigned char * jpegbuf = NULL;
+    static unsigned long jpegsize = 0;
+    static tjhandle tjc = NULL;
+    static void* memcopy = NULL;
+    int ret;
+    if(tjc == NULL)
+        tjc = tjInitCompress();
+    if(memcopy == NULL && width != -1 && height != -1 && pitch != -1)
+    {
+        memcopy = malloc(height*pitch);
+    }
+    memcpy(memcopy, (void*)fbp, height*pitch);
+    if(tjCompress2(tjc, (const unsigned char*)fbp, width, pitch, height, TJPF_BGRA,
+                &jpegbuf, &jpegsize, TJSAMP_420, quality, TJ))
+    {
+        perror("tjCompress2");
+        return -1;
+    }
+    *ptr = jpegbuf;
+    return jpegsize;
 }
 
 int main(int argc, char** argv)
@@ -45,7 +69,7 @@ int main(int argc, char** argv)
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
     long int screensize = 0;
-    char *fbp = 0;
+    //char *fbp = 0;
     int x = 0, y = 0;
     long int location = 0;
 
@@ -53,6 +77,9 @@ int main(int argc, char** argv)
 
     if(argc > 1)
         file = argv[1];
+
+    setlinebuf(stdout);
+    setlinebuf(stderr);
 
     // Open the file for reading and writing
     fbfd = open(file, O_RDWR);
@@ -75,7 +102,7 @@ int main(int argc, char** argv)
     }
 
     printf("%dx%d, %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
-    printf("%s (%s) = %i\n", "xres", "visible resolution", vinfo.xres);
+/*  printf("%s (%s) = %i\n", "xres", "visible resolution", vinfo.xres);
     printf("%s (%s) = %i\n", "yres", "visible resolution", vinfo.yres);
     printf("%s (%s) = %i\n", "xres_virtual", "virtual resolution", vinfo.xres_virtual);
     printf("%s (%s) = %i\n", "yres_virtual", "virtual resolution", vinfo.yres_virtual);
@@ -99,6 +126,12 @@ int main(int argc, char** argv)
     printf("%s (%s) = %i\n", "vmode", "see FB_VMODE_*", vinfo.vmode);
     printf("%s (%s) = %i\n", "rotate", "angle we rotate counter clockwise", vinfo.rotate);
     //printf("%s (%s) = %i\n", "colorspace", "colorspace", vinfo.colorspace);
+#define BF(x) printf(#x " = %i, %i, %i\n", vinfo.x.length, vinfo.x.offset, vinfo.x.msb_right);
+    BF(red)
+    BF(green)
+    BF(blue)
+    BF(transp)
+#undef BF
 
     printf("%s (%s) = %16s\n", "id", "identification string", finfo.id);
     printf("%s (%s) = %lx\n", "smem_start", "Start of frame buffer mem", finfo.smem_start);
@@ -114,9 +147,14 @@ int main(int argc, char** argv)
     printf("%s (%s) = %i\n", "mmio_len", "Length of Memory Mapped I/O ", finfo.mmio_len);
     printf("%s (%s) = %i\n", "accel", "Indicate to driver which", finfo.accel);
     //printf("%s (%s) = %i\n", "capabilities", "see FB_CAP_*		", finfo.capabilities);
+    fflush(stdout);*/
 
     // Figure out the size of the screen in bytes
-    screensize = vinfo.xres_virtual * vinfo.yres * vinfo.bits_per_pixel / 8;
+    //screensize = vinfo.xres_virtual * vinfo.yres * vinfo.bits_per_pixel / 8;
+    screensize = finfo.line_length * vinfo.yres;
+    width = vinfo.xres;
+    height = vinfo.yres;
+    pitch = finfo.line_length;
 
     // Map the device to memory
     fbp = (char *)mmap(0, screensize, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
@@ -126,6 +164,7 @@ int main(int argc, char** argv)
     }
     printf("The framebuffer device was mapped to memory successfully.\n");
 
+    /*
 //    x = 100; y = 100;       // Where we are going to put the pixel
 
 //    // Figure out where in memory to put the pixel
@@ -150,7 +189,11 @@ int main(int argc, char** argv)
 //            }
 
 //        }
-    munmap(fbp, screensize);
+*/
+    fflush(stdout);
+    loop(get_jpeg_from_fb);
+
+    munmap((void*)fbp, screensize);
     close(fbfd);
     return 0;
 }
