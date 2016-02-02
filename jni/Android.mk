@@ -60,7 +60,7 @@ libjpeg-turbo/tjutil.c\
 libjpeg-turbo/transupp.c\
 libjpeg-turbo/turbojpeg.c\
 
-LOCAL_C_INCLUDES += libjpeg-turbo .
+LOCAL_C_INCLUDES += libjpeg-turbo . jni
 LOCAL_CFLAGS += -fPIE -std=c99
 LOCAL_LDFLAGS += -fPIE -pie
 # this option will build executables instead of building library for android application.

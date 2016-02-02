@@ -26,9 +26,10 @@ int loop(GetData gd)
     struct sockaddr_in addr;
 
     struct MsgHeader mh = { HEADER_SYNC, 0};
-    struct iovec iov[2];
-    iov[0].iov_base = &mh;
-    iov[0].iov_len = sizeof(struct MsgHeader);
+    struct msghdr msg = {0};
+    msg.msg_iovlen = 2;
+    msg.msg_iov[0].iov_base = &mh;
+    msg.msg_iov[0].iov_len = sizeof(struct MsgHeader);
 
     CHECK(sfd = socket(AF_INET, SOCK_STREAM, 0));
     addr.sin_family = AF_INET;
@@ -37,7 +38,7 @@ int loop(GetData gd)
     CHECK(bind(sfd, (const struct sockaddr*)&addr, sizeof(addr)));
     CHECK(listen(sfd, 1));
 
-    signal(SIGPIPE, SIG_IGN);
+    //signal(SIGPIPE, SIG_IGN);
 
     while(1)
     {
@@ -46,14 +47,14 @@ int loop(GetData gd)
 
         socklen_t l = sizeof(addr);
         CHECK(fd = accept(sfd, (struct sockaddr*)&addr, &l));
-        printf("loop: accept %s\n", gethostbyaddr(&addr, sizeof(addr), AF_INET)->h_name);
+        printf("loop: accept %s\n", gethostbyaddr((void*)&addr, sizeof(addr), AF_INET)->h_name);
 
         while((len = gd(&ptr)) > 0)
         {
-            iov[1].iov_base = (void*)ptr;
-            iov[1].iov_len = len;
+            msg.msg_iov[1].iov_base = (void*)ptr;
+            msg.msg_iov[1].iov_len = len;
             mh.length = len;
-            if(writev(fd, (const struct iovec*)&iov, 2) < 0)
+            if(sendmsg(fd, &msg, 0) < 0)
             {
                 if(errno == ECONNRESET || errno == ECONNABORTED || errno == EPIPE)
                     break;

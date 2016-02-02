@@ -1,4 +1,4 @@
 obj/*
 libs/*
-*.user
 loop
+*.user.*
