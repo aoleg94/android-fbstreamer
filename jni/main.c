@@ -56,7 +56,7 @@ int get_jpeg_from_fb(const void** ptr)
     //memcpy(memcopy, (void*)fbp, height*pitch);
     if(pread(fbfd, memcopy, height*pitch, 0) < 0)
         memcpy(memcopy, (void*)fbp, height*pitch);
-    if(tjCompress2(tjc, (const unsigned char*)fbp, width, pitch, height, TJPF_BGRA,
+    if(tjCompress2(tjc, (const unsigned char*)memcopy, width, pitch, height, TJPF_BGRA,
                 &jpegbuf, &jpegsize, TJSAMP_420, quality, TJFLAG_FASTDCT))
     {
         perror("tjCompress2");
