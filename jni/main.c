@@ -35,6 +35,7 @@ int jpeg_to_fd(int fd, void* pixels, int width, int height, int pitch)
     return ret;
 }
 */
+int fbfd = -1;
 volatile unsigned char* fbp = NULL;
 int width=-1, height=-1, pitch=-1;
 int quality = 90;
@@ -52,9 +53,11 @@ int get_jpeg_from_fb(const void** ptr)
     {
         memcopy = malloc(height*pitch);
     }
-    memcpy(memcopy, (void*)fbp, height*pitch);
+    //memcpy(memcopy, (void*)fbp, height*pitch);
+    if(pread(fbfd, memcopy, height*pitch, 0) < 0)
+        memcpy(memcopy, (void*)fbp, height*pitch);
     if(tjCompress2(tjc, (const unsigned char*)fbp, width, pitch, height, TJPF_BGRA,
-                &jpegbuf, &jpegsize, TJSAMP_420, quality, TJ))
+                &jpegbuf, &jpegsize, TJSAMP_420, quality, TJFLAG_FASTDCT))
     {
         perror("tjCompress2");
         return -1;
@@ -65,7 +68,7 @@ int get_jpeg_from_fb(const void** ptr)
 
 int main(int argc, char** argv)
 {
-    int fbfd = 0;
+    //int fbfd = 0;
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
     long int screensize = 0;
