@@ -1,7 +1,9 @@
 #ifndef LOOP_H
 #define LOOP_H
 
-typedef int (*GetData)(const void** ptr);
+#include <sys/uio.h>
+
+typedef int (*GetData)(const struct iovec** ptr);
 int loop(GetData gd);
 
 #endif // LOOP_H

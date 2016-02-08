@@ -18,6 +18,7 @@ struct MsgHeader
 {
     char sync[8];
     size_t length;
+    //int number, count;
 };
 
 int loop(GetData gd)

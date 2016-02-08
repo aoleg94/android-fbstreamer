@@ -61,7 +61,7 @@ libjpeg-turbo/transupp.c\
 libjpeg-turbo/turbojpeg.c\
 
 LOCAL_C_INCLUDES += libjpeg-turbo . jni
-LOCAL_CFLAGS += -fPIE -std=c99
-LOCAL_LDFLAGS += -fPIE -pie
+LOCAL_CFLAGS += -fPIE -std=c99 -fopenmp -flto
+LOCAL_LDFLAGS += -fPIE -pie -fopenmp -flto
 # this option will build executables instead of building library for android application.
 include $(BUILD_EXECUTABLE)

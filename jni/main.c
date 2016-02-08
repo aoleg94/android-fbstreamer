@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -9,6 +10,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <linux/fb.h>
+#include <omp.h>
 #include "libjpeg-turbo/turbojpeg.h"
 #include "loop.h"
 /*
@@ -39,16 +41,49 @@ int fbfd = -1;
 volatile unsigned char* fbp = NULL;
 int width=-1, height=-1, pitch=-1;
 int quality = 90;
+int jpegSubsamp = TJSAMP_420;
+void* memcopy = NULL;
+/*int workercount = 1;
 
-int get_jpeg_from_fb(const void** ptr)
+struct JobData {
+    void* outptr;
+    int number;
+};*/
+
+struct OutHeader {
+    int number, count;
+    char data[1];
+};
+/*
+void* compressor_worker(void* ud)
 {
+    struct JobData* job = (struct JobData*)ud;
+
     static unsigned char * jpegbuf = NULL;
     static unsigned long jpegsize = 0;
     static tjhandle tjc = NULL;
-    static void* memcopy = NULL;
     int ret;
     if(tjc == NULL)
         tjc = tjInitCompress();
+
+    if(tjCompress2(tjc, ((const unsigned char*)memcopy) + pitch, width, pitch, height, TJPF_BGRA,
+                    &jpegbuf, &jpegsize, TJSAMP_420, quality, TJFLAG_FASTDCT))
+        {
+            perror("tjCompress2");
+            return -1;
+        }
+}
+
+int compress_state = 0;
+
+int compress_multicore()
+{
+    int cpucount = pthread_getconcurrency();
+    struct JobData jobs[cpucount];
+}
+*/
+int get_jpeg_from_fb(const struct iovec** ptr, int* num)
+{
     if(memcopy == NULL && width != -1 && height != -1 && pitch != -1)
     {
         memcopy = malloc(height*pitch);
@@ -56,14 +91,41 @@ int get_jpeg_from_fb(const void** ptr)
     //memcpy(memcopy, (void*)fbp, height*pitch);
     if(pread(fbfd, memcopy, height*pitch, 0) < 0)
         memcpy(memcopy, (void*)fbp, height*pitch);
-    if(tjCompress2(tjc, (const unsigned char*)memcopy, width, pitch, height, TJPF_BGRA,
-                &jpegbuf, &jpegsize, TJSAMP_420, quality, TJFLAG_FASTDCT))
+
+    int count = *num = omp_get_num_threads();
+    static struct OutHeader* hdrs = NULL;
+    static tjhandle* tjc = NULL;
+    if(!hdrs)
+        hdrs = malloc(count * (sizeof(struct OutHeader) + tjBufSize(width, height, jpegSubsamp)));
+    if(!tjc)
+        tjc = calloc(count, sizeof(tjhandle));
+
+    struct iovec iov[count];
+    int hp = height/count;
+
+    int was_error = false;
+
+#pragma omp parallel reduction(||:was_error)
     {
-        perror("tjCompress2");
-        return -1;
+        int i = omp_get_thread_num();
+        iov[i].iov_base = &hdrs[i];
+
+        if(tjc[i] == NULL)
+            tjc[i] = tjInitCompress();
+
+        int size = tjBufSize(width, height, jpegSubsamp);
+        if(tjCompress2(tjc[i], ((const unsigned char*)memcopy) + i*hp, width, pitch, hp, TJPF_BGRA,
+                       hdrs[i].data, &size, jpegSubsamp, quality, TJFLAG_FASTDCT|TJFLAG_NOREALLOC))
+        {
+            perror("tjCompress2");
+            was_error = true;
+        }
+        iov[i].iov_len = sizeof(struct OutHeader) + size - 1;
     }
-    *ptr = jpegbuf;
-    return jpegsize;
+    if(was_error)
+        return -1;
+
+    return 0;
 }
 
 int main(int argc, char** argv)
